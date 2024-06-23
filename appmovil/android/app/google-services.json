@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "809208530029",
+    "project_id": "tallerii-4104d",
+    "storage_bucket": "tallerii-4104d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:809208530029:android:94a804a0a7cd4890cbab64",
+        "android_client_info": {
+          "package_name": "com.ulagos.parking"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBNaOxY1QCvMRB3Eosa1hEk7xSp-arip_M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

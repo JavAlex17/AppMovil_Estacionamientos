@@ -1,6 +1,6 @@
 {
-    "name": "appmovil",
-    "short_name": "appmovil",
+    "name": "uparking",
+    "short_name": "uparking",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

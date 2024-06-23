@@ -16,26 +16,25 @@ class VisitasPage extends StatelessWidget {
         ],
       ),
       body: Center(
-
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
             const SizedBox(height: 30),
             const Text('Registro de visitas', style: TextStyle(fontSize: 28, color: Color(0xFF000000))),
-            const SizedBox(height: 20),
+            const SizedBox(height: 15),
 
             _buildTextField(label: 'Nombre'), // Campo de nombre
-            const SizedBox(height: 20), // Espacio entre los campos
+            const SizedBox(height: 15), // Espacio entre los campos
             _buildTextField(label: 'Patente'), // Campo de patente
-            const SizedBox(height: 20), // Espacio entre los campos
+            const SizedBox(height: 15), // Espacio entre los campos
             _buildTextField(label: 'Color'), // Campo de color
-            const SizedBox(height: 20), // Espacio entre los campos
+            const SizedBox(height: 15), // Espacio entre los campos
             _buildTextField(label: 'Teléfono'), // Campo de teléfono
-            const SizedBox(height: 20), // Espacio entre los campos y el botón
+            const SizedBox(height: 15), // Espacio entre los campos y el botón
 
             SizedBox(
-                width: 250,
+                width: 235,
                 height: 40,
                 child:
                 ElevatedButton(
@@ -58,7 +57,7 @@ class VisitasPage extends StatelessWidget {
 
   Widget _buildTextField({required String label}) {
     return Container(
-      width: 340,
+      width: 320,
       height: 45,
         margin: const EdgeInsets.symmetric(vertical: 5),
       child: TextField(
