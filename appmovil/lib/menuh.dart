@@ -1,5 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'modificar_datos.dart';
+import 'login.dart';
 import 'registrar_vehiculo.dart';
 
 
@@ -48,18 +49,6 @@ class MenuHamburguesa extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Modificar datos',
-                style: TextStyle(fontSize: 22),
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ModificarDatos()),
-                );
-              },
-            ),
-            ListTile(
               leading: const Icon(Icons.history),
               title: const Text('Registros',
                 style: TextStyle(fontSize: 22),
@@ -80,7 +69,12 @@ class MenuHamburguesa extends StatelessWidget {
               title: const Text('Cerrar sesión',
                 style: TextStyle(fontSize: 22),
               ),
-              onTap: () {
+              onTap: () async {
+                await FirebaseAuth.instance.signOut();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()), // Reemplaza con tu página de inicio de sesión
+                );
                 // Aquí se implementa la lógica para cerrar la sesión
               },
             ),
