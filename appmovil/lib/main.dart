@@ -1,9 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:uparking/user.dart';
-import 'login.dart';
 import 'firebase_options.dart';
+import 'login.dart';
 import 'package:firebase_core/firebase_core.dart';
+
+import 'user_guardia.dart';
+
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +35,15 @@ class MyApp extends StatelessWidget {
 class AuthCheck extends StatelessWidget {
   const AuthCheck({Key? key}) : super(key: key);
 
+  Future<bool> checkIfGuard(User? user) async {
+    if (user == null) return false;
+    DocumentSnapshot doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    if (doc.exists) {
+      return doc['guard'] == true;
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -40,7 +53,19 @@ class AuthCheck extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasData) {
-          return const UsuarioPage();
+          return FutureBuilder<bool>(
+            future: checkIfGuard(snapshot.data),
+            builder: (context, guardSnapshot) {
+              if (guardSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (guardSnapshot.hasData && guardSnapshot.data == true) {
+                return const UserGuardiaPage();
+              } else {
+                return const UsuarioPage();
+              }
+            },
+          );
         }
         return const HomePage();
       },
@@ -75,11 +100,11 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 30),
 
                   const Text('Disponibles en Chuyaca:', style: TextStyle(fontSize: 25, color: Color(0xFFFEFEFF))),
-                  const Text('000', style: TextStyle(fontSize: 40, color: Color(0xFFFEFEFF))),
+                  const Text('027', style: TextStyle(fontSize: 40, color: Color(0xFFFEFEFF))),
                   const SizedBox(height: 10),
 
                   const Text('Disponibles en Meyer:', style: TextStyle(fontSize: 25, color: Color(0xFFFEFEFF))),
-                  const Text('000', style: TextStyle(fontSize: 40, color: Color(0xFFFEFEFF))),
+                  const Text('086', style: TextStyle(fontSize: 40, color: Color(0xFFFEFEFF))),
                   const SizedBox(height: 40),
 
 
@@ -91,10 +116,10 @@ class _HomePageState extends State<HomePage> {
                       ElevatedButton(
                           onPressed: (){
                             Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const LoginPage()),
+                              context,
+                              MaterialPageRoute(builder: (context) => const LoginPage()),
                             );
-                            },
+                          },
                           style: ElevatedButton.styleFrom(
                             foregroundColor: const Color(0xFFFEFEFF),
                             backgroundColor: const Color(0xFFB6ADA4),

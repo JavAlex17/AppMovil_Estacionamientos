@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uparking/selecionar_lugar.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
+import 'package:intl/intl.dart';
 
 import 'menuh.dart';
+import 'seleccionar_lugar_chuyaca.dart';
 
 class UsuarioPage extends StatefulWidget {
   const UsuarioPage({Key? key}) : super(key: key);
@@ -14,6 +18,54 @@ class UsuarioPage extends StatefulWidget {
 
 class _UsuarioPageState extends State<UsuarioPage> {
   Map<String, dynamic>? _selectedVehicle;
+  Map<String, dynamic>? reservaActiva;
+  String? reservaActivaId;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchReservaActiva();
+    _fetchUserVehicles();
+  }
+
+  Future<void> _fetchReservaActiva() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('reservas')
+          .where('uid', isEqualTo: user.uid)
+          .where('activa', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final reserva = querySnapshot.docs.first;
+        setState(() {
+          reservaActiva = reserva.data();
+          reservaActivaId = reserva.id;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchUserVehicles() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final vehicleDocs = await FirebaseFirestore.instance
+          .collection('vehiculos')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      if (vehicleDocs.docs.isNotEmpty) {
+        setState(() {
+          _selectedVehicle = vehicleDocs.docs.first.data() as Map<String, dynamic>;
+          _selectedVehicle!['vehicleId'] = vehicleDocs.docs.first.id;
+        });
+      }
+    }
+  }
+
+
 
   Future<String> _getUserName() async {
     final User? user = FirebaseAuth.instance.currentUser;
@@ -61,6 +113,87 @@ class _UsuarioPageState extends State<UsuarioPage> {
     return 'Patente no seleccionada';
   }
 
+  void _navigateToModifyData(Map<String, dynamic> vehicleData) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ModificarDatos(
+          vehicleData: vehicleData,
+          onUpdate: _refreshUserVehicles,
+        ),
+      ),
+    );
+    _refreshUserVehicles();
+  }
+
+  Future<void> _liberarLugar() async {
+    if (reservaActivaId != null && reservaActiva != null) {
+      try {
+        // Actualiza el estado de la reserva para desactivarla
+        await FirebaseFirestore.instance.collection('reservas').doc(reservaActivaId!).update({
+          'activa': false,
+        });
+
+        // Usa el atributo 'lugar' del documento de reserva activa
+        final String lugarId = reservaActiva!['lugar'];
+        final String campus = reservaActiva!['campus']; // Obtener el campus de la reserva activa
+        if (lugarId.isNotEmpty) {
+          // Determinar la colección de lugares según el campus
+          String lugaresCollection = campus == 'C' ? 'lugares_chuyaca' : 'lugares_meyer';
+
+          // Actualiza el lugar en la colección correspondiente para marcarlo como disponible
+          final lugarDoc = await FirebaseFirestore.instance.collection(lugaresCollection).doc(lugarId).get();
+          if (lugarDoc.exists) {
+            await FirebaseFirestore.instance.collection(lugaresCollection).doc(lugarId).update({
+              'disponible': true,
+            });
+
+            setState(() {
+              reservaActiva = null;
+              reservaActivaId = null;
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Lugar liberado exitosamente')),
+            );
+          } else {
+            throw 'El documento del lugar no existe en la colección $lugaresCollection';
+          }
+        } else {
+          throw 'El campo lugar no está presente o está vacío en la reserva activa';
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al liberar el lugar: $e')),
+        );
+        print('Error al liberar el lugar: $e');
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay reserva activa para liberar')),
+      );
+    }
+  }
+
+
+  Future<List<Map<String, dynamic>>> _getUltimasReservasInactivas() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final QuerySnapshot reservaDocs = await FirebaseFirestore.instance
+          .collection('reservas')
+          .where('uid', isEqualTo: user.uid)
+          .where('activa', isEqualTo: false)
+          .orderBy('timestamp', descending: true)
+          .limit(3)
+          .get();
+
+      return reservaDocs.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+    }
+    return [];
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -96,7 +229,7 @@ class _UsuarioPageState extends State<UsuarioPage> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 } else if (snapshot.hasError) {
-                  return const Center(child: Text('Error al cargar los datos'));
+                  return const Center(child: Text('Error al cargar los datos del usuario'));
                 } else {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,30 +242,34 @@ class _UsuarioPageState extends State<UsuarioPage> {
                       const Text('Datos de mi vehículo:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
                       _selectedVehicle != null
-                          ? Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 10),
-                                Text('Patente: ${_selectedVehicle!['patente']}', style: const TextStyle(fontSize: 18)),
-                                Text('Color: ${_selectedVehicle!['color']}', style: const TextStyle(fontSize: 18)),
-                                Text('Modelo: ${_selectedVehicle!['modelo']}', style: const TextStyle(fontSize: 18)),
-                                const SizedBox(height: 10),
-                              ],
+                          ? GestureDetector(
+                        onTap: () => _navigateToModifyData(_selectedVehicle!),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 5),
+                                  Text('Patente: ${_selectedVehicle!['patente']}', style: const TextStyle(fontSize: 18)),
+                                  Text('Color: ${_selectedVehicle!['color']}', style: const TextStyle(fontSize: 18)),
+                                  Text('Modelo: ${_selectedVehicle!['modelo']}', style: const TextStyle(fontSize: 18)),
+                                  const SizedBox(height: 10),
+                                ],
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () {
-                              _deleteVehicle(_selectedVehicle!['vehicleId']);
-                              setState(() {
-                                _selectedVehicle = null;
-                              });
-                            },
-                          ),
-                        ],
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () {
+                                _deleteVehicle(_selectedVehicle!['vehicleId']);
+                                setState(() {
+                                  _selectedVehicle = null;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
                       )
                           : const Center(child: Text('No hay vehículo seleccionado.')),
                       const Divider(color: Colors.black),
@@ -142,15 +279,20 @@ class _UsuarioPageState extends State<UsuarioPage> {
                         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 10),
-                      const Text('Lugar: Zona A', style: TextStyle(fontSize: 18)),
-                      const Text('Hora de entrada: 10:00 AM', style: TextStyle(fontSize: 18)),
-                      const Text('Hora de salida: 02:00 PM', style: TextStyle(fontSize: 18)),
+                      if (reservaActiva != null) ...[
+                        Text('Lugar: ${reservaActiva!['lugar']}', style: TextStyle(fontSize: 18)),
+                        Text('Campus: ${reservaActiva!['campus']}', style: TextStyle(fontSize: 18)),
+                        Text('Hora de entrada: ${reservaActiva!['hora_inicio']}', style: TextStyle(fontSize: 18)),
+                        Text('Hora de salida: ${reservaActiva!['hora_fin']}', style: TextStyle(fontSize: 18)),
+                      ] else ...[
+                        const Text('No hay reservas activas.', style: TextStyle(fontSize: 18)),
+                      ],
                       const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           ElevatedButton(
-                            onPressed: () async {
+                            onPressed: reservaActiva != null ? null : () async {
                               String userName = await _getUserName();
                               User? user = FirebaseAuth.instance.currentUser;
                               if (user != null) {
@@ -175,19 +317,47 @@ class _UsuarioPageState extends State<UsuarioPage> {
                               foregroundColor: Colors.white,
                               backgroundColor: const Color(0xFF0055B7),
                             ),
-                            child: const Text('Reservar lugar'),
+                            child: Text(reservaActiva != null ? 'Reserva activa' : 'Reservar en Meyer'),
                           ),
                           ElevatedButton(
-                            onPressed: () {
-                              // Lógica para liberar lugar
+                            onPressed: reservaActiva != null ? null : () async {
+                              String userName = await _getUserName();
+                              User? user = FirebaseAuth.instance.currentUser;
+                              if (user != null) {
+                                String uid = user.uid;
+                                String patente = _getSelectedVehiclePatente(); // Obtener la patente del vehículo seleccionado
+
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ReservaChuyacaPage(
+                                      userName: userName,
+                                      uid: uid,
+                                      patente: patente, // Pasar la patente a ReservaPage
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                // Handle case where user is not logged in
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               foregroundColor: Colors.white,
                               backgroundColor: const Color(0xFF0055B7),
                             ),
-                            child: const Text('Liberar lugar'),
+                            child: Text(reservaActiva != null ? 'Reserva activa' : 'Reservar en Chuyaca'),
                           ),
                         ],
+                      ),
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: _liberarLugar,
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: const Color(0xFF0055B7),
+                          ),
+                          child: const Text('Liberar lugar'),
+                        ),
                       ),
                       const SizedBox(height: 20),
                       const Divider(color: Colors.black),
@@ -197,23 +367,36 @@ class _UsuarioPageState extends State<UsuarioPage> {
                         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 10),
-                      ListView(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: const [
-                          ListTile(
-                            title: Text('Fecha: 2024-06-11', style: TextStyle(fontSize: 18)),
-                            subtitle: Text('Hora: 10:00 AM\nLugar: Zona A', style: TextStyle(fontSize: 16)),
-                          ),
-                          ListTile(
-                            title: Text('Fecha: 2024-06-06', style: TextStyle(fontSize: 18)),
-                            subtitle: Text('Hora: 09:00 AM\nLugar: Zona B', style: TextStyle(fontSize: 16)),
-                          ),
-                          ListTile(
-                            title: Text('Fecha: 2024-05-20', style: TextStyle(fontSize: 18)),
-                            subtitle: Text('Hora: 18:00 PM\nLugar: Zona C', style: TextStyle(fontSize: 16)),
-                          ),
-                        ],
+                      FutureBuilder<List<Map<String, dynamic>>>(
+                        future: _getUltimasReservasInactivas(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          } else if (snapshot.hasError) {
+                            return const Center(child: Text('Error al cargar las reservas'));
+                          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const Center(child: Text('No hay reservas recientes.'));
+                          } else {
+                            final ultimasReservas = snapshot.data!;
+                            return ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: ultimasReservas.length,
+                              itemBuilder: (context, index) {
+                                final reserva = ultimasReservas[index];
+                                final timestamp = reserva['timestamp'] as Timestamp;
+                                final formattedFecha = DateFormat('yyyy-MM-dd').format(timestamp.toDate());
+                                final horaInicio = reserva['hora_inicio'] ?? 'Hora desconocida'; // Usar hora_inicio como cadena
+                                final lugar = reserva['lugar'] ?? 'Lugar desconocido';
+                                final campus = reserva['campus'] ?? 'Campus no registrado';
+                                return ListTile(
+                                  title: Text('Fecha: $formattedFecha', style: TextStyle(fontSize: 18)),
+                                  subtitle: Text('Hora: $horaInicio\nLugar: $lugar\nCampus: $campus', style: TextStyle(fontSize: 16)),
+                                );
+                              },
+                            );
+                          }
+                        },
                       ),
                     ],
                   );
@@ -268,7 +451,8 @@ class _UsuarioPageState extends State<UsuarioPage> {
             },
           );
         },
-        child: const Icon(Icons.swap_horiz),
+        backgroundColor: const Color(0xFF0055B7),
+        child: const FaIcon(FontAwesomeIcons.car, color: Colors.white),
       ),
     );
   }

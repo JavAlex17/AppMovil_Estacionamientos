@@ -2,21 +2,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:uparking/user.dart';
 
-import 'mapa_meyer.dart';
+import 'mapa_chuyaca.dart';
 
-class ReservaPage extends StatefulWidget {
+class ReservaChuyacaPage extends StatefulWidget {
   final String userName;
   final String uid;
   final String patente;
 
-  const ReservaPage({super.key, required this.userName, required this.uid, required this.patente});
+  const ReservaChuyacaPage({super.key, required this.userName, required this.uid, required this.patente});
 
 
   @override
-  _ReservaPageState createState() => _ReservaPageState();
+  _ReservaChuyacaPageState createState() => _ReservaChuyacaPageState();
 }
 
-class _ReservaPageState extends State<ReservaPage> {
+class _ReservaChuyacaPageState extends State<ReservaChuyacaPage> {
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
   Map<int, bool> disponibilidadLugares = {};
@@ -30,9 +30,9 @@ class _ReservaPageState extends State<ReservaPage> {
   }
 
   Future<void> _createLugaresSiNoExisten() async {
-    CollectionReference lugares = FirebaseFirestore.instance.collection('lugares_meyer');
+    CollectionReference lugares = FirebaseFirestore.instance.collection('lugares_chuyaca');
 
-    for (int i = 1; i <= 28; i++) {  // Cambiado el inicio de 1
+    for (int i = 1; i <= 87; i++) {  // Cambiado el inicio de 1
       String lugarId = i.toString();
       DocumentReference docRef = lugares.doc(lugarId);
       DocumentSnapshot docSnapshot = await docRef.get();
@@ -43,7 +43,7 @@ class _ReservaPageState extends State<ReservaPage> {
   }
 
   Future<void> _fetchDisponibilidadLugares() async {
-    FirebaseFirestore.instance.collection('lugares_meyer').get().then((querySnapshot) {
+    FirebaseFirestore.instance.collection('lugares_chuyaca').get().then((querySnapshot) {
       Map<int, bool> fetchedDisponibilidad = {};
       for (var doc in querySnapshot.docs) {
         int lugarId = int.parse(doc.id); // Asumiendo que el ID del documento es el número del lugar
@@ -243,7 +243,7 @@ class _ReservaPageState extends State<ReservaPage> {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Center(
-        child: MapaMeyer(
+        child: MapaChuyaca(
           disponibilidadLugares: disponibilidadLugares,
           lugarSeleccionado: lugarSeleccionado,
           onToggleSeleccion: _toggleSeleccion,
@@ -293,7 +293,7 @@ class _ReservaPageState extends State<ReservaPage> {
         'uid': widget.uid,
         'patente': widget.patente,
         'lugar': lugarId,
-        'campus': 'M',
+        'campus': 'C',
         'hora_inicio': '${_startTime!.hour}:${_startTime!.minute}',
         'hora_fin': '${_endTime!.hour}:${_endTime!.minute}',
         'activa': true,
@@ -301,7 +301,7 @@ class _ReservaPageState extends State<ReservaPage> {
       }).then((reservaRef) {
         // Reserva creada exitosamente
         // Actualizamos la disponibilidad del lugar a ocupado (false)
-        FirebaseFirestore.instance.collection('lugares_meyer').doc(lugarId).update({
+        FirebaseFirestore.instance.collection('lugares_chuyaca').doc(lugarId).update({
           'disponible': false,
         }).then((value) {
           // Mostramos mensaje de reserva exitosa

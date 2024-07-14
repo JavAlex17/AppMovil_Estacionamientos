@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:uparking/registro_usuario.dart';
-import 'package:uparking/visitas.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'user.dart';
+import 'user_guardia.dart';
+import 'registro_usuario.dart';
+import 'visitas.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -38,6 +40,53 @@ class LoginPageState extends State<LoginPage> {
     );
   }
 
+  Future<void> _login() async {
+    String email = _emailController.text.trim();
+    String password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showErrorDialog('Por favor, ingrese su correo y contraseña');
+      return;
+    }
+
+    try {
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final User? user = userCredential.user;
+      if (user != null) {
+        // Obtener datos del usuario desde Firestore
+        final DocumentSnapshot userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+
+        if (userDoc.exists) {
+          // Verificar el atributo 'guard'
+          final bool isGuard = userDoc['guard'] == true;
+
+          if (isGuard) {
+            // Si es guardia, navegar a UserGuardiaPage
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const UserGuardiaPage()),
+            );
+          } else {
+            // Si no es guardia, navegar a UsuarioPage
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const UsuarioPage()),
+            );
+          }
+        } else {
+          _showErrorDialog('No se encontraron datos del usuario.');
+        }
+      }
+    } catch (e) {
+      print('Error al iniciar sesión: $e');
+      _showErrorDialog('Error al iniciar sesión. Por favor, verifique sus datos e intente nuevamente.');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,24 +98,22 @@ class LoginPageState extends State<LoginPage> {
           children: [
             Image.asset('lib/assets/img/logoulagos.png', height: 120),
             const SizedBox(height: 35),
-
             const Text('Estacionamientos', style: TextStyle(fontSize: 30, color: Color(0xFFFEFEFF))),
             const Text('Chuyaca - Meyer', style: TextStyle(fontSize: 25, color: Color(0xFFFEFEFF))),
-            const SizedBox(height: 20), // Espacio de 20 de altura entre el logo y el primer texto
-
+            const SizedBox(height: 20),
             _buildTextField(
-                controller: _emailController,
-                label: 'Correo Institucional',
-                isPassword: false,
-                icon: Icons.email),
+              controller: _emailController,
+              label: 'Correo',
+              isPassword: false,
+              icon: Icons.email,
+            ),
             _buildTextField(
-                controller: _passwordController,
-                label: 'Contraseña',
-                isPassword: true,
-                icon: Icons.lock),
-
-            const SizedBox(height: 20), // Espacio de 20 de altura entre el último campo de entrada de texto y el botón
-
+              controller: _passwordController,
+              label: 'Contraseña',
+              isPassword: true,
+              icon: Icons.lock,
+            ),
+            const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -77,7 +124,7 @@ class LoginPageState extends State<LoginPage> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const RegisterPage()), // Navegar a la página de registro
+                        MaterialPageRoute(builder: (context) => const RegisterPage()),
                       );
                     },
                     style: ElevatedButton.styleFrom(
@@ -88,31 +135,12 @@ class LoginPageState extends State<LoginPage> {
                     child: const Text('Registrar', style: TextStyle(fontSize: 16)),
                   ),
                 ),
-                const SizedBox(width: 20), // Espacio entre los dos botones
+                const SizedBox(width: 20),
                 SizedBox(
                   width: 120,
                   height: 40,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      String email = _emailController.text.trim();
-                      String password = _passwordController.text.trim();
-
-                      try {
-                        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-                          email: email,
-                          password: password,
-                        );
-
-                        // Si el inicio de sesión es exitoso, navega a la página de usuario
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (context) => const UsuarioPage()),
-                        );
-                      } catch (e) {
-                        // Manejo de errores
-                        // Aquí puedes mostrar un mensaje de error al usuario
-                      }
-                    },
+                    onPressed: _login,
                     style: ElevatedButton.styleFrom(
                       foregroundColor: const Color(0xFFFEFEFF),
                       backgroundColor: const Color(0xFFB6ADA4),
@@ -123,14 +151,12 @@ class LoginPageState extends State<LoginPage> {
                 ),
               ],
             ),
-
-            const SizedBox(height: 20), // Espacio de 20 de altura entre el botón y el último texto
-
+            const SizedBox(height: 20),
             GestureDetector(
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => VisitasPage()), // Navegar a la otra pantalla
+                  MaterialPageRoute(builder: (context) => VisitasPage()),
                 );
               },
               child: const Text('¿Eres visita? Click aquí', style: TextStyle(fontSize: 18, color: Color(0xFFFFFFFF))),
@@ -141,11 +167,12 @@ class LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildTextField(
-      {required TextEditingController controller,
-        required String label,
-        required bool isPassword,
-        required IconData icon}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required bool isPassword,
+    required IconData icon,
+  }) {
     return Container(
       width: 340,
       height: 45,
